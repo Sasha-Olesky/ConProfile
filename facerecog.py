@@ -30,15 +30,19 @@ def searchData(filename):
     _searchTread.start()
 
 def recogFace(orgImg, faceImg):
-    orgImg = cv2.cvtColor(orgImg, cv2.COLOR_BGR2GRAY)
-    faceImg = cv2.cvtColor(faceImg, cv2.COLOR_BGR2GRAY)
-    w, h = orgImg.shape[::-1]
-    res = cv2.matchTemplate(faceImg, orgImg, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.8
-    loc = np.where(res >= threshold)
-    for pt in zip(*loc[::-1]):
-        return True
-    return False
+    try:
+        orgImg = cv2.cvtColor(orgImg, cv2.COLOR_BGR2GRAY)
+        faceImg = cv2.cvtColor(faceImg, cv2.COLOR_BGR2GRAY)
+        w, h = orgImg.shape[::-1]
+        res = cv2.matchTemplate(faceImg, orgImg, cv2.TM_CCOEFF_NORMED)
+        threshold = 0.8
+        loc = np.where(res >= threshold)
+        for pt in zip(*loc[::-1]):
+            return True
+        return False
+    except:
+        print("Error Template Matching")
+        return False
 
 class getPostThread(QThread):
 
@@ -120,10 +124,10 @@ class getPostThread(QThread):
                     for i, d in enumerate(faces):
                         if self.bThreading == False:
                             break;
-                        x = d.left()
-                        y = d.top()
-                        w = d.right() - d.left()
-                        h = d.bottom() - d.top()
+                        #x = d.left()
+                        #y = d.top()
+                        #w = d.right() - d.left()
+                        #h = d.bottom() - d.top()
                         #height, width, channels = frame.shape
                         #x1 = x - w / 2
                         #x2 = x + w  + w / 2
@@ -138,8 +142,8 @@ class getPostThread(QThread):
                         #if y2 > height -2:
                         #    y2 = height -2
 
-                        roi_color = frame[y:y+h, x:x+w]
-                        temp_color = frame[y:y+h, x:x+w]
+                        roi_color = frame[d.top():d.bottom(), d.left():d.right()]
+                        temp_color = frame[d.top():d.bottom(), d.left():d.right()]
                         if faceIdx == 0:
                             name = str('faces/') + str(faceIdx) + '.png'
                             templateName = str('faceTemplates/') + str(faceIdx) + '.png'
