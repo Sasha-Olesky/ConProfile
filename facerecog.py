@@ -71,8 +71,8 @@ class getPostThread(QThread):
 
         cap = cv2.VideoCapture(0)
         cap.set(cv2.CAP_PROP_AUTOFOCUS, False)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640);
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480);
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320);
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240);
         codec = 1196444237.0  # MJPG
         cap.set(cv2.CAP_PROP_FOURCC, codec)
         if (cap.isOpened() == False):
