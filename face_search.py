@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import MySQLdb
 import datetime
 import time
+from google import google, images
 
 cookies = CookieJar()
 opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cookies))
@@ -131,6 +132,13 @@ def searchInfoByURL(url):
     return sourceCode
 
 def searchInfoByImage(filePath):
+    #try:
+    #    options = images.ImageOptions()
+    #    options.image_type = images.ImageType.FACE
+    #    options.larger_than = images.LargerThan.MP_4
+    #    sourceCode = google.search_images(filePath, options)
+    #except:
+    #    return None
     searchUrl = 'http://www.google.com/searchbyimage/upload'
     multipart = {'encoded_image': (filePath, open(filePath, 'rb')), 'image_content': ''}
     response = requests.post(searchUrl, files=multipart, allow_redirects=False)
