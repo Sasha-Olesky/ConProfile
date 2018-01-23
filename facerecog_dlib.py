@@ -92,9 +92,12 @@ class getPostThread(QThread):
                 exist = False
 
                 dets = detector(gray, 1)
+                displayFrame = frame.copy()
                 for i, d in enumerate(dets):
+                    cv2.rectangle(displayFrame, (d.left(), d.top()), (d.right(), d.bottom()), (0, 255, 0), 2)
                     faceMaxCnt = faceMaxCnt + 1
                     exist = True
+                self.emit(SIGNAL('signal(PyQt_PyObject)'), displayFrame)
 
                 if exist == True:
                     for counter in range(0, 10):
@@ -108,17 +111,13 @@ class getPostThread(QThread):
                             tempFaces = detector(gray, 1)
                             faceCnt = 0
 
-                            if counter == 0:
+                            for i, d in enumerate(tempFaces):
+                                cv2.rectangle(tempFrame, (d.left(), d.top()), (d.right(), d.bottom()), (0, 255, 0), 2)
+                                faceCnt = faceCnt + 1
+
+                            if faceCnt >= faceMaxCnt:
                                 faces = tempFaces
                                 frame = procFrame
-                            else:
-                                for i, d in enumerate(tempFaces):
-                                    cv2.rectangle(tempFrame, (d.left(), d.top()), (d.right(), d.bottom()), (0, 255, 0), 2)
-                                    faceCnt = faceCnt + 1
-
-                                if faceCnt >= faceMaxCnt:
-                                    faces = tempFaces
-                                    frame = procFrame
 
                             self.emit(SIGNAL('signal(PyQt_PyObject)'), tempFrame)
 
@@ -193,8 +192,6 @@ class getPostThread(QThread):
                                 # --------- udpate people_table when face exists already. ------------
                                 imagePath = str(existFaceIdx) + '.png'
                                 updatePeopelTable(imagePath)
-                else:
-                    self.emit(SIGNAL('signal(PyQt_PyObject)'), frame)
             else:
                 print("Error Connecting Camera")
                 break
