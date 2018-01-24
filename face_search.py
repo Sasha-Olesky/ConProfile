@@ -8,7 +8,6 @@ from bs4 import BeautifulSoup
 import MySQLdb
 import datetime
 import time
-from google import google, images
 
 cookies = CookieJar()
 opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cookies))
