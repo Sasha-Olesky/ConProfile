@@ -1,35 +1,12 @@
 from PyQt4.QtCore import QThread, SIGNAL
-import threading,time
+import threading, time, Queue
 import numpy as np
 import cv2
 import dlib
 import os
 from GoogleSearch import *
 
-def searchData(filename):
-    full_path = os.getcwd()
-    full_path = full_path.replace("\\", "/")
-    filePath = full_path + "/faces/" + filename
-
-    _searchTread = threading.Thread(target=searchInfoFromGoogle, args=(filePath, False,))
-    _searchTread.start()
-
-def recogFace(orgImg, faceImg):
-    try:
-        orgImg = cv2.cvtColor(orgImg, cv2.COLOR_BGR2GRAY)
-        faceImg = cv2.cvtColor(faceImg, cv2.COLOR_BGR2GRAY)
-        w, h = orgImg.shape[::-1]
-        res = cv2.matchTemplate(faceImg, orgImg, cv2.TM_CCOEFF_NORMED)
-        threshold = 0.8
-        loc = np.where(res >= threshold)
-        for pt in zip(*loc[::-1]):
-            return True
-        return False
-    except:
-        print("Error Template Matching")
-        return False
-
-class getPostThread(QThread):
+class FaceDetectThread(QThread):
 
     bThreading = True
     def __init__(self, path):
@@ -147,8 +124,9 @@ class getPostThread(QThread):
                             cv2.imwrite(templateName, temp_color)
                             print("New Face")
                             savefile = str(faceIdx) + '.png'
-                            searchData(savefile)
+                            self.searchData(savefile)
                             faceIdx = faceIdx + 1
+                            self.emit(SIGNAL('face(PyQt_PyObject)'), temp_color)
                         else:
                             bExistFace = False
                             existFaceIdx = -1
@@ -158,7 +136,7 @@ class getPostThread(QThread):
                                 filePath = full_path + "/faceTemplates/" + str(beforeIdx) + '.png'
                                 orgImg = cv2.imread(filePath)
 
-                                bExistFace = recogFace(orgImg, temp_color)
+                                bExistFace = self.recogFace(orgImg, temp_color)
                                 if bExistFace == True:
                                     existFaceIdx = beforeIdx
                                     break
@@ -170,7 +148,7 @@ class getPostThread(QThread):
                                 cv2.imwrite(templateName, temp_color)
                                 print("New Face")
                                 savefile = str(faceIdx) + '.png'
-                                searchData(savefile)
+                                self.searchData(savefile)
                                 faceIdx = faceIdx + 1
                                 self.emit(SIGNAL('face(PyQt_PyObject)'), temp_color)
                             else:
@@ -184,3 +162,33 @@ class getPostThread(QThread):
 
         cap.release()
         self.quit()
+
+    def searchData(self, filename):
+        full_path = os.getcwd()
+        full_path = full_path.replace("\\", "/")
+        filePath = full_path + "/faces/" + filename
+
+        _searchTread = GoogleSearchThread("")
+        _searchTread.setPath(filePath)
+        _searchTread.connect(_searchTread, SIGNAL("google_search(PyQt_PyObject)"), self.searchResult)
+        _searchTread.start()
+        #_searchTread = threading.Thread(target=searchInfoFromGoogle, args=(filePath, False))
+        #_searchTread.start()
+
+    def recogFace(self, orgImg, faceImg):
+        try:
+            orgImg = cv2.cvtColor(orgImg, cv2.COLOR_BGR2GRAY)
+            faceImg = cv2.cvtColor(faceImg, cv2.COLOR_BGR2GRAY)
+            w, h = orgImg.shape[::-1]
+            res = cv2.matchTemplate(faceImg, orgImg, cv2.TM_CCOEFF_NORMED)
+            threshold = 0.8
+            loc = np.where(res >= threshold)
+            for pt in zip(*loc[::-1]):
+                return True
+            return False
+        except:
+            print("Error Template Matching")
+            return False
+
+    def searchResult(self, result):
+        self.emit(SIGNAL('search_result(PyQt_PyObject)'), result)

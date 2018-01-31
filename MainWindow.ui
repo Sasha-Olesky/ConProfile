@@ -138,7 +138,7 @@
      <string/>
     </property>
    </widget>
-   <widget class="QTableView" name="search_result_table">
+   <widget class="QListWidget" name="search_result_table">
     <property name="geometry">
      <rect>
       <x>10</x>

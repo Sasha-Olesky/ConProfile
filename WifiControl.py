@@ -1,139 +1,94 @@
-import re
-from wifi import Cell, Scheme
-import wifi.subprocess_compat as subprocess
-from wifi.utils import ensure_file_exists
+import wifi
 
-class SchemeWPA(Scheme):
+def Search():
+    wifilist = []
 
-    interfaces = "/etc/wpa_supplicant/wpa_supplicant.conf"
+    cells = wifi.Cell.all('wlan0')
 
-    def __init__(self, interface, name, options=None):
-        self.interface = interface
-        self.name = name
-        self.options = options or {} 
+    for cell in cells:
+        wifilist.append(cell)
 
-    def __str__(self):
-        """
-        Returns the representation of a scheme that you would need
-        in the /etc/wpa_supplicant/wpa_supplicant.conf file.
-        """
+    return wifilist
 
-        options = ''.join("\n    {k}=\"{v}\"".format(k=k, v=v) for k, v in self.options.items())
-        return "network={" + options + '\n}\n'
 
-    def __repr__(self):
-            return 'Scheme(interface={interface!r}, name={name!r}, options={options!r}'.format(**vars(self))
-    def save(self):
-        """
-        Writes the configuration to the :attr:`interfaces` file.
-        """
-        if not self.find(self.interface, self.name):
-            with open(self.interfaces, 'a') as f:
-                f.write('\n')
-                f.write(str(self))        
+def FindFromSearchList(ssid):
+    wifilist = Search()
 
-    @classmethod
-    def all(cls):
-        """
-        Returns an generator of saved schemes.
-        """
-        ensure_file_exists(cls.interfaces)
-        with open(cls.interfaces, 'r') as f:
-            return extract_schemes(f.read(), scheme_class=cls) 
-    def activate(self):
-        """
-        Connects to the network as configured in this scheme.
-        """
+    for cell in wifilist:
+        if cell.ssid == ssid:
+            return cell
 
-        subprocess.check_output(['/sbin/ifdown', self.interface], stderr=subprocess.STDOUT)
-        ifup_output = subprocess.check_output(['/sbin/ifup', self.interface] , stderr=subprocess.STDOUT)
-        ifup_output = ifup_output.decode('utf-8')
+    return False
 
-        return self.parse_ifup_output(ifup_output)
-    def delete(self):
-        """
-        Deletes the configuration from the /etc/wpa_supplicant/wpa_supplicant.conf file.
-        """
-        content = ''
-        with open(self.interfaces, 'r') as f:
-            lines=f.read().splitlines()
-            while lines:
-                line=lines.pop(0)
 
-                if line.startswith('#') or not line:
-                    content+=line+"\n"
-                    continue
+def FindFromSavedList(ssid):
+    cell = wifi.Scheme.find('wlan0', ssid)
 
-                match = scheme_re.match(line)
-                if match:
-                    options = {}
-                    ssid=None
-                    content2=line+"\n"
-                    while lines and lines[0].startswith(' '):
-                        line=lines.pop(0)
-                        content2+=line+"\n"
-                        key, value = re.sub(r'\s{2,}', ' ', line.strip()).split('=', 1)
-                        #remove any surrounding quotes on value
-                        if value.startswith('"') and value.endswith('"'):
-                            value = value[1:-1]
-                        #store key, value
-                        options[key] = value
-                        #check for ssid (scheme name)
-                        if key=="ssid":
-                            ssid=value
-                    #get closing brace        
-                    line=lines.pop(0)
-                    content2+=line+"\n"
+    if cell:
+        return cell
 
-                    #exit if the ssid was not found so just add to content
-                    if not ssid:
-                        content+=content2
-                        continue
-                    #if this isn't the ssid then just add to content
-                    if ssid!=self.name:
-                        content+=content2
+    return False
 
+
+def Connect(ssid, password=None):
+    cell = FindFromSearchList(ssid)
+
+    if cell:
+        savedcell = FindFromSavedList(cell.ssid)
+
+        # Already Saved from Setting
+        if savedcell:
+            savedcell.activate()
+            return cell
+
+        # First time to conenct
+        else:
+            if cell.encrypted:
+                if password:
+                    scheme = Add(cell, password)
+
+                    try:
+                        scheme.activate()
+
+                    # Wrong Password
+                    except wifi.exceptions.ConnectionError:
+                        Delete(ssid)
+                        return False
+
+                    return cell
                 else:
-                    #no match so add content
-                    content+=line+"\n"
-                    continue
+                    return False
+            else:
+                scheme = Add(cell)
 
-        #Write the new content
-        with open(self.interfaces, 'w') as f:
-            f.write(content)    
+                try:
+                    scheme.activate()
+                except wifi.exceptions.ConnectionError:
+                    Delete(ssid)
+                    return False
 
-scheme_re = re.compile(r'network={\s?')
+                return cell
+
+    return False
 
 
-#override extract schemes
-def extract_schemes(interfaces, scheme_class=SchemeWPA):
-    lines = interfaces.splitlines()
-    while lines:
-        line = lines.pop(0)
-        if line.startswith('#') or not line:
-            continue
+def Add(cell, password=None):
+    if not cell:
+        return False
 
-        match = scheme_re.match(line)
-        if match:
-            options = {}
-            interface="wlan0"
-            ssid=None
+    scheme = wifi.Scheme.for_cell('wlan0', cell.ssid, cell, password)
+    scheme.save()
+    return scheme
 
-            while lines and lines[0].startswith(' '):
-                key, value = re.sub(r'\s{2,}', ' ', lines.pop(0).strip()).split('=', 1)
-                #remove any surrounding quotes on value
-                if value.startswith('"') and value.endswith('"'):
-                    value = value[1:-1]
-                #store key, value
-                options[key] = value
-                #check for ssid (scheme name)
-                if key=="ssid":
-                    ssid=value
 
-            #exit if the ssid was not found
-            if ssid is None:
-                continue
-            #create a new class with this info
-            scheme = scheme_class(interface, ssid, options)
+def Delete(ssid):
+    if not ssid:
+        return False
 
-            yield scheme
+    cell = FindFromSavedList(ssid)
+
+    if cell:
+        cell.delete()
+        return True
+
+    return False

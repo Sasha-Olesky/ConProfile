@@ -1,3 +1,4 @@
+from PyQt4.QtCore import QThread, SIGNAL
 import os
 import urllib2
 from cookielib import CookieJar
@@ -63,7 +64,7 @@ def insertDataToMysql(results, filePath):
     lastName = ""
 
     if names == None:
-        return
+        return "Failed"
         firstName = "Unknown"
     elif len(names) > 1:
         firstName = names[0]
@@ -98,7 +99,7 @@ def insertDataToMysql(results, filePath):
         sql = "UPDATE people_table SET last_sight = '%s' WHERE id like '%s'" % \
               (nowTime, updateId)
         runQueryMysql(sql)
-        return
+        return "Failed"
 
     sql = "SELECT * from people_table"
     pId = runQueryMysql(sql, True)
@@ -124,6 +125,11 @@ def insertDataToMysql(results, filePath):
     wholeName = firstName + " " + lastName;
     t = threading.Thread(target=saveHttpContent, args=(results['links'], wholeName))
     t.start()
+
+    search_result = "ID:'%s', First Name:'%s', Last Name:'%s', First Date:'%s', Last Sight:'%s', Linked URLS : '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'" % \
+          (pId, firstName, lastName, firstDate, firstDate,
+           urls[0], urls[1], urls[2], urls[3], urls[4], urls[5], urls[6], urls[7], urls[8], urls[9])
+    return search_result
 
 def searchInfoByURL(url):
     googlePath = 'http://www.google.com/searchbyimage?image_url=' + url
@@ -174,7 +180,7 @@ def searchInfoFromGoogle(filePath, url=False):
         source = searchInfoByImage(filePath)
 
     if source == None:
-        return
+        return "Failed"
 
     soup = BeautifulSoup(source, 'html.parser')
     results = {
@@ -208,7 +214,7 @@ def searchInfoFromGoogle(filePath, url=False):
         names = firstMan.split()
 
     if names == None:
-        return
+        return "Failed"
 
     print("-------------description---------------\n")
     for desc in soup.findAll('span', attrs={'class': 'st'}):
@@ -225,7 +231,8 @@ def searchInfoFromGoogle(filePath, url=False):
     except:
         insertDataToMysql(results, filePath)
 
-    insertDataToMysql(results, filePath)
+    result = insertDataToMysql(results, filePath)
+    return result
 
 def getCurrentTime(DateOnly=False):
     now = datetime.datetime.now()
@@ -327,3 +334,24 @@ def saveHttpContent(links, name):
 #     elem.send_keys('seleniumhq' + Keys.RETURN)
 #
 #     browser.quit()
+
+class GoogleSearchThread(QThread):
+
+    bThreading = True
+    def __init__(self, path):
+        QThread.__init__(self)
+        self.path = path
+
+    def __del__(self):
+        self.wait()
+
+    def setPath(self, path):
+        self.path = path
+
+    def run(self):
+        result = searchInfoFromGoogle(self.path, False)
+        if result == "Failed":
+            return
+        else:
+            self.emit(SIGNAL('google_search(PyQt_PyObject)'), result)
+

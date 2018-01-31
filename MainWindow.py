@@ -8,7 +8,6 @@
 
 from PyQt4 import QtCore, QtGui
 from FaceDetect import *
-from WifiControl import *
 from WifiDialog import *
 import cv2
 
@@ -26,20 +25,14 @@ except AttributeError:
     def _translate(context, text, disambig):
         return QtGui.QApplication.translate(context, text, disambig)
 
-class WiFiDialog(QtGui.QDialog):
-  def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
-        self.ui = Ui_Wifi_Dialog()
-        self.ui.setupUi(self)
-
 class Ui_Main_Window(object):
-    process_thread = getPostThread("")
+    process_thread = FaceDetectThread("")
 
     def setupUi(self, Main_Window):
         Main_Window.setObjectName(_fromUtf8("Main_Window"))
-        Main_Window.resize(480, 601)
-        Main_Window.setMinimumSize(QtCore.QSize(0, 0))
-        Main_Window.setMaximumSize(QtCore.QSize(1000, 1000))
+        Main_Window.resize(480, 600)
+        Main_Window.setMinimumSize(QtCore.QSize(480, 600))
+        Main_Window.setMaximumSize(QtCore.QSize(480, 600))
         Main_Window.setWindowFlags(QtCore.Qt.WindowMaximizeButtonHint)
 
         self.process_group = QtGui.QGroupBox(Main_Window)
@@ -56,12 +49,12 @@ class Ui_Main_Window(object):
         self.camera_view.setObjectName(_fromUtf8("camera_view"))
 
         self.wifi_connect_btn = QtGui.QPushButton(self.process_group)
-        self.wifi_connect_btn.setGeometry(QtCore.QRect(240, 20, 101, 23))
+        self.wifi_connect_btn.setGeometry(QtCore.QRect(180, 20, 131, 23))
         self.wifi_connect_btn.setObjectName(_fromUtf8("wifi_connect_btn"))
         self.wifi_connect_btn.clicked.connect(self.connect_wifi)
 
         self.camera_connect_btn = QtGui.QPushButton(self.process_group)
-        self.camera_connect_btn.setGeometry(QtCore.QRect(350, 20, 101, 23))
+        self.camera_connect_btn.setGeometry(QtCore.QRect(320, 20, 131, 23))
         self.camera_connect_btn.setObjectName(_fromUtf8("camera_connect_btn"))
         self.camera_connect_btn.clicked.connect(self.connect_camera)
 
@@ -78,7 +71,7 @@ class Ui_Main_Window(object):
         self.face_view.setText(_fromUtf8(""))
         self.face_view.setObjectName(_fromUtf8("face_view"))
 
-        self.search_result_table = QtGui.QTableView(self.result_group)
+        self.search_result_table = QtGui.QListWidget(self.result_group)
         self.search_result_table.setGeometry(QtCore.QRect(10, 20, 301, 131))
         self.search_result_table.setObjectName(_fromUtf8("search_result_table"))
 
@@ -96,8 +89,9 @@ class Ui_Main_Window(object):
         connectToMysql()
         self.process_thread.connect(self.process_thread, SIGNAL("camera(PyQt_PyObject)"), self.show_camera)
         self.process_thread.connect(self.process_thread, SIGNAL("face(PyQt_PyObject)"), self.show_face)
+        self.process_thread.connect(self.process_thread, SIGNAL("search_result(PyQt_PyObject)"), self.search_result)
         self.process_thread.start()
-        self.process_thread.setDisabled(True)
+        #self.process_thread.setDisabled(True)
 
     def show_camera(self, frame):
         display = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -113,10 +107,19 @@ class Ui_Main_Window(object):
         self.face_view.setPixmap(pix)
         self.face_view.setScaledContents(True)
 
+    def search_result(self, result):
+        item = QListWidgetItem(result)
+        self.search_result_table.addItem(item)
+
     def connect_wifi(self):
-        Dialog = WiFiDialog(self)
-        Dialog.show()
-        ret = Dialog.exec_()
+        result = Ui_Wifi_Dialog()
+        result.setupUi()
+
+    def connect_lan(self):
+        ret = False
+
+    def search_wifi(self):
+        ret = False
 
 if __name__ == "__main__":
     import sys
