@@ -30,6 +30,7 @@ except AttributeError:
 
 class Ui_MainWindow(object):
     process_thread = FaceDetectThread("")
+    bShowProcBtns = False
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("ConProfile"))
@@ -116,17 +117,24 @@ class Ui_MainWindow(object):
         self.search_wifi()
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))
+        MainWindow.setWindowTitle(_translate("MainWindow", "ConProfile", None))
         self.sorttype_combo.setItemText(0, _translate("MainWindow", "Sort By Date", None))
         self.faceshot_lbl.setText(_translate("MainWindow", "Best Mugshots", None))
         self.start_btn.setText(_translate("MainWindow", "Start Camera", None))
         self.stop_btn.setText(_translate("MainWindow", "Stop Camera", None))
 
     def on_setting_btn_clicked(self):
-        self.start_btn.show()
-        self.stop_btn.show()
-        self.wifi_combo.show()
-        self.setting_btn.hide()
+        if self.bShowProcBtns:
+            self.start_btn.hide()
+            self.stop_btn.hide()
+            self.wifi_combo.hide()
+            self.bShowProcBtns = False
+        else:
+            self.start_btn.show()
+            self.stop_btn.show()
+            self.wifi_combo.show()
+            self.bShowProcBtns = True
+
 
     def on_start_btn_clicked(self):
         connectToMysql()
@@ -140,19 +148,23 @@ class Ui_MainWindow(object):
         self.start_btn.hide()
         self.stop_btn.hide()
         self.wifi_combo.hide()
-        self.setting_btn.show()
+        self.bShowProcBtns = False
 
     def on_stop_btn_clicked(self):
         self.process_thread.bThreading = False
         self.start_btn.hide()
         self.stop_btn.hide()
         self.wifi_combo.hide()
-        self.setting_btn.show()
+        self.bShowProcBtns = False
 
     def on_wifi_combo_selector(self):
         name = str(self.wifi_combo.currentText())
         result = Ui_Wifi_Dialog()
         result.setupUi(name)
+        self.start_btn.hide()
+        self.stop_btn.hide()
+        self.wifi_combo.hide()
+        self.bShowProcBtns = False
 
     def show_camera_data(self, frame):
         display = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
