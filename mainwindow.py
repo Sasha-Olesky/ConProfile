@@ -259,27 +259,31 @@ class Ui_MainWindow(object):
         self.search_widget.addItem(item)
 
     def search_wifi(self):
-        #cells = Search()
-        #for cell in cells:
-        #    if cell.ssid == "":
-        #        self.wifi_combo.addItem(cell.ssid)
+        try:
+            cells = Search()
+            for cell in cells:
+                if cell.ssid == "":
+                    self.wifi_combo.addItem(cell.ssid)
+        except:
+            try:
+                wifi_list = subprocess.check_output(["netsh", "wlan", "show", "network"])
+                results = wifi_list.decode("ascii")  # needed in python 3
+                results = results.replace("\r", "")
+                ls = results.split("\n")
+                ls = ls[4:]
+                ssids = []
+                x = 0
+                while x < len(ls):
+                    if x % 5 == 0:
+                        ssid = ls[x][9:]
+                        ssids.append(ssid)
+                    x += 1
 
-        wifi_list = subprocess.check_output(["netsh", "wlan", "show", "network"])
-        results = wifi_list.decode("ascii")  # needed in python 3
-        results = results.replace("\r", "")
-        ls = results.split("\n")
-        ls = ls[4:]
-        ssids = []
-        x = 0
-        while x < len(ls):
-            if x % 5 == 0:
-                ssid = ls[x][9:]
-                ssids.append(ssid)
-            x += 1
-
-        for i, ssid in enumerate(ssids):
-            if ssid != "":
-                self.wifi_combo.addItem(ssid)
+                for i, ssid in enumerate(ssids):
+                    if ssid != "":
+                        self.wifi_combo.addItem(ssid)
+            except:
+                return
 
     def exit_thread(self, bExit):
         self.start_btn.setDisabled(False)
