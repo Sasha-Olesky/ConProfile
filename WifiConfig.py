@@ -108,7 +108,7 @@ class Ui_Wifi_Dialog(QtGui.QDialog):
             else:
                 self.hide()
         except:
-            QtGui.QMessageBox.about(self, "Connection Error", "Cannot Access WIFI.")
+            #QtGui.QMessageBox.about(self, "Connection Error", "Cannot Access WIFI.")
             self.hide()
 
 

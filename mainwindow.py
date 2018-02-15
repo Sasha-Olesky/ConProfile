@@ -6,7 +6,7 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-#from PyQt4 import QtCore, QtGui
+from PyQt4 import QtCore, QtGui
 from FaceDetect import *
 from WifiConfig import *
 import subprocess
@@ -34,7 +34,10 @@ class Ui_MainWindow(object):
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("ConProfile"))
-        MainWindow.resize(1077, 500)
+        MainWindow.resize(1080, 500)
+        MainWindow.setMaximumSize(1080, 500)
+        MainWindow.setMinimumSize(1080, 500)
+        MainWindow.setWindowIcon(QtGui.QIcon('icon.png'))
 
         self.centralwidget = QtGui.QWidget(MainWindow)
         self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
@@ -84,7 +87,7 @@ class Ui_MainWindow(object):
         self.setting_btn.clicked.connect(self.on_setting_btn_clicked)
 
         self.start_btn = QtGui.QPushButton(self.centralwidget)
-        self.start_btn.setGeometry(QtCore.QRect(490, 360, 100, 25))
+        self.start_btn.setGeometry(QtCore.QRect(490, 320, 100, 25))
         font = QtGui.QFont()
         font.setBold(True)
         font.setWeight(75)
@@ -94,7 +97,7 @@ class Ui_MainWindow(object):
         self.start_btn.hide()
 
         self.stop_btn = QtGui.QPushButton(self.centralwidget)
-        self.stop_btn.setGeometry(QtCore.QRect(490, 390, 100, 25))
+        self.stop_btn.setGeometry(QtCore.QRect(490, 350, 100, 25))
         font = QtGui.QFont()
         font.setBold(True)
         font.setWeight(75)
@@ -104,10 +107,30 @@ class Ui_MainWindow(object):
         self.stop_btn.hide()
 
         self.wifi_combo = QtGui.QComboBox(self.centralwidget)
-        self.wifi_combo.setGeometry(QtCore.QRect(490, 420, 100, 25))
+        self.wifi_combo.setGeometry(QtCore.QRect(490, 380, 100, 25))
         self.wifi_combo.setObjectName(_fromUtf8("wifi_combo"))
         self.wifi_combo.activated.connect(self.on_wifi_combo_selector)
         self.wifi_combo.hide()
+
+        self.site_combo = QtGui.QComboBox(self.centralwidget)
+        self.site_combo.setGeometry(QtCore.QRect(490, 410, 100, 25))
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setWeight(75)
+        self.site_combo.setFont(font)
+        self.site_combo.setObjectName(_fromUtf8("site_combo"))
+        self.site_combo.addItem(_fromUtf8(""))
+        self.site_combo.addItem(_fromUtf8(""))
+        self.site_combo.addItem(_fromUtf8(""))
+        self.site_combo.addItem(_fromUtf8(""))
+        self.site_combo.addItem(_fromUtf8(""))
+        self.site_combo.addItem(_fromUtf8(""))
+        self.site_combo.hide()
+
+        self.swap_view = QtGui.QLabel(self.centralwidget)
+        self.swap_view.setGeometry(QtCore.QRect(570, 20, 60, 80))
+        self.swap_view.setText(_fromUtf8(""))
+        self.swap_view.setObjectName(_fromUtf8("swap_view"))
 
         MainWindow.setCentralWidget(self.centralwidget)
 
@@ -122,32 +145,52 @@ class Ui_MainWindow(object):
         self.faceshot_lbl.setText(_translate("MainWindow", "Best Mugshots", None))
         self.start_btn.setText(_translate("MainWindow", "Start Camera", None))
         self.stop_btn.setText(_translate("MainWindow", "Stop Camera", None))
+        self.site_combo.setItemText(0, _translate("MainWindow", "Google", None))
+        self.site_combo.setItemText(1, _translate("MainWindow", "Bing", None))
+        self.site_combo.setItemText(2, _translate("MainWindow", "Yahoo", None))
+        self.site_combo.setItemText(3, _translate("MainWindow", "Baidu", None))
+        self.site_combo.setItemText(4, _translate("MainWindow", "DuckDuckGo", None))
+        self.site_combo.setItemText(5, _translate("MainWindow", "Yandex", None))
 
     def on_setting_btn_clicked(self):
         if self.bShowProcBtns:
             self.start_btn.hide()
             self.stop_btn.hide()
             self.wifi_combo.hide()
+            self.site_combo.hide()
             self.bShowProcBtns = False
         else:
             self.start_btn.show()
             self.stop_btn.show()
             self.wifi_combo.show()
+            self.site_combo.show()
             self.bShowProcBtns = True
 
-
     def on_start_btn_clicked(self):
-        connectToMysql()
+        dataPath = self.show_swap_data()
+        if dataPath == 'NonExist':
+            print("Swap Data Error!\n")
+            return
+        else:
+            ui.process_thread.swapPath = dataPath
+
         ui.process_thread.bThreading = True
+        ui.process_thread.searchPath = str(self.site_combo.currentText())
+        connectToMysql()
+
         self.process_thread.connect(self.process_thread, SIGNAL("camera(PyQt_PyObject)"), self.show_camera_data)
         self.process_thread.connect(self.process_thread, SIGNAL("face(PyQt_PyObject)"), self.show_face_data)
         self.process_thread.connect(self.process_thread, SIGNAL("search_result(PyQt_PyObject)"), self.show_search_data)
         self.process_thread.connect(self.process_thread, SIGNAL("finish(PyQt_PyObject)"), self.exit_thread)
         self.process_thread.start()
 
+        self.start_btn.setDisabled(True)
+        self.wifi_combo.setDisabled(True)
+        self.site_combo.setDisabled(True)
         self.start_btn.hide()
         self.stop_btn.hide()
         self.wifi_combo.hide()
+        self.site_combo.hide()
         self.bShowProcBtns = False
 
     def on_stop_btn_clicked(self):
@@ -155,16 +198,42 @@ class Ui_MainWindow(object):
         self.start_btn.hide()
         self.stop_btn.hide()
         self.wifi_combo.hide()
+        self.site_combo.hide()
         self.bShowProcBtns = False
 
     def on_wifi_combo_selector(self):
         name = str(self.wifi_combo.currentText())
         result = Ui_Wifi_Dialog()
         result.setupUi(name)
-        self.start_btn.hide()
-        self.stop_btn.hide()
-        self.wifi_combo.hide()
-        self.bShowProcBtns = False
+
+    def show_swap_data(self):
+        options = QtGui.QFileDialog.Options()
+        options |= QtGui.QFileDialog.DontUseNativeDialog
+        caption = 'Swap Face File'
+        directory = ''
+        filter = 'Image Files (*.jpg);;Image Files (*.png)'
+        fileName = QtGui.QFileDialog.getOpenFileName(None, caption, directory, filter, options=options)
+        swapData = cv2.imread(str(fileName))
+        display = cv2.cvtColor(swapData, cv2.COLOR_BGR2RGB)
+        image = QtGui.QImage(display, display.shape[1], display.shape[0], display.shape[1] * 3,
+                             QtGui.QImage.Format_RGB888)
+
+        pix = QtGui.QPixmap(image)
+        self.swap_view.setPixmap(pix)
+        self.swap_view.setScaledContents(True)
+
+        gray = cv2.cvtColor(swapData, cv2.COLOR_BGR2GRAY)
+        detector = dlib.get_frontal_face_detector()
+        dets = detector(gray, 1)
+        bExistFace = False
+        for i, d in enumerate(dets):
+            bExistFace = True
+            break
+
+        if bExistFace:
+            return str(fileName);
+        else:
+            return 'NonExist'
 
     def show_camera_data(self, frame):
         display = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -213,8 +282,12 @@ class Ui_MainWindow(object):
                 self.wifi_combo.addItem(ssid)
 
     def exit_thread(self, bExit):
+        self.start_btn.setDisabled(False)
+        self.wifi_combo.setDisabled(False)
+        self.site_combo.setDisabled(False)
         self.camera_view.clear()
         self.shot_widget.clear()
+        self.swap_view.clear()
 
 if __name__ == "__main__":
     import sys

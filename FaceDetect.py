@@ -3,11 +3,15 @@ import threading, time, Queue
 import numpy as np
 import cv2
 import dlib
+from FaceSwap import *
 from GoogleSearch import *
 
 class FaceDetectThread(QThread):
 
     bThreading = True
+    swapPath = "";
+    searchPath = "";
+
     def __init__(self, path):
         QThread.__init__(self)
         self.path = path
@@ -55,10 +59,10 @@ class FaceDetectThread(QThread):
                 dets = detector(gray, 1)
                 displayFrame = frame.copy()
                 for i, d in enumerate(dets):
-                    cv2.rectangle(displayFrame, (d.left(), d.top()), (d.right(), d.bottom()), (0, 255, 0), 2)
                     faceMaxCnt = faceMaxCnt + 1
                     exist = True
-                self.emit(SIGNAL('camera(PyQt_PyObject)'), displayFrame)
+
+                self.swapFace(displayFrame, dets)
 
                 if exist == True:
                     for counter in range(0, 10):
@@ -73,14 +77,13 @@ class FaceDetectThread(QThread):
                             faceCnt = 0
 
                             for i, d in enumerate(tempFaces):
-                                cv2.rectangle(tempFrame, (d.left(), d.top()), (d.right(), d.bottom()), (0, 255, 0), 2)
                                 faceCnt = faceCnt + 1
 
                             if faceCnt >= faceMaxCnt:
                                 faces = tempFaces
                                 frame = procFrame
 
-                            self.emit(SIGNAL('camera(PyQt_PyObject)'), tempFrame)
+                            self.swapFace(tempFrame, tempFaces)
 
                     result_faces = []
                     for i, d in enumerate(faces):
@@ -171,7 +174,7 @@ class FaceDetectThread(QThread):
         full_path = full_path.replace("\\", "/")
         filePath = full_path + "/faces/" + filename
 
-        _searchTread = threading.Thread(target=searchInfoFromGoogle, args=(self, filePath, False))
+        _searchTread = threading.Thread(target=searchInfo, args=(self, filePath, self.searchPath, False))
         _searchTread.start()
 
     def recogFace(self, orgImg, faceImg):
@@ -188,3 +191,26 @@ class FaceDetectThread(QThread):
         except:
             print("Error Template Matching")
             return False
+
+    def swapFace(self, orgImg, faceRects):
+        swapImg = cv2.imread(str(self.swapPath))
+
+        for i, d in enumerate(faceRects):
+            height, width, channels = orgImg.shape
+
+            X1 = d.left()
+            Y1 = d.top()
+            X2 = d.right()
+            Y2 = d.bottom()
+            if (X1 < 0): X1 = 4
+            if (X2 >= width): X2 = width - 5
+            if (Y1 < 0): Y1 = 4
+            if (Y2 >= height): Y2 = height - 5
+            try:
+                org = orgImg[Y1:Y2, X1:X2]
+                orgImg[Y1:Y2, X1:X2] = faceSwap(org, swapImg)
+                cv2.rectangle(orgImg, (d.left(), d.top()), (d.right(), d.bottom()), (0, 255, 0), 2)
+            except:
+                continue
+
+        self.emit(SIGNAL('camera(PyQt_PyObject)'), orgImg)

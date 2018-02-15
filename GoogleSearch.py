@@ -5,9 +5,10 @@ from cookielib import CookieJar
 import requests
 from threading import Thread, Lock
 import threading
-from bs4 import BeautifulSoup
 import MySQLdb
 import datetime
+from bs4 import BeautifulSoup
+from UploadImage import *
 
 cookies = CookieJar()
 opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cookies))
@@ -130,31 +131,6 @@ def insertDataToMysql(results, filePath):
            urls[0], urls[1], urls[2], urls[3], urls[4], urls[5], urls[6], urls[7], urls[8], urls[9])
     return search_result
 
-def searchInfoByURL(url):
-    googlePath = 'http://www.google.com/searchbyimage?image_url=' + url
-    sourceCode = opener.open(googlePath).read()
-    return sourceCode
-
-def searchInfoByImage(filePath):
-    #try:
-    #    options = images.ImageOptions()
-    #    options.image_type = images.ImageType.FACE
-    #    options.larger_than = images.LargerThan.MP_4
-    #    sourceCode = google.search_images(filePath, options)
-    #except:
-    #    return None
-    searchUrl = 'http://www.google.com/searchbyimage/upload'
-    multipart = {'encoded_image': (filePath, open(filePath, 'rb')), 'image_content': ''}
-    response = requests.post(searchUrl, files=multipart, allow_redirects=False)
-
-    try:
-        fetchUrl = response.headers['Location']
-        sourceCode = opener.open(fetchUrl).read()  # webbrowser.open(fetchUrl)
-    except:
-        return None
-
-    return sourceCode
-
 def updatePeopelTable(imagePath):
     sql = "SELECT people_table.id FROM people_table LEFT JOIN event_table ON(people_table.id = event_table.name_id) WHERE event_table.image_path LIKE '%%%s%%'" % \
           (imagePath);
@@ -171,67 +147,6 @@ def updatePeopelTable(imagePath):
               (nowTime, updateId)
         runQueryMysql(sql)
         return
-
-def searchInfoFromGoogle(self, filePath, url=False):
-    if url:
-        source = searchInfoByURL(filePath)
-    else:
-        source = searchInfoByImage(filePath)
-
-    if source == None:
-        return "Failed"
-
-    soup = BeautifulSoup(source, 'html.parser')
-    results = {
-        'links': [],
-        'descriptions': [],
-        'titles': [],
-        'similar_images': []
-    }
-
-    print("-----------------title-----------------\n")
-    for title in soup.findAll('h3', attrs={'class': 'r'}):
-        results['titles'].append(title.get_text())
-
-    print("\n\n-------------links---------------\n")
-    for div in soup.findAll('div', attrs={'class': 'g'}):
-        sLink = div.find('a')
-        link = sLink['href']
-        if link != "":
-            results['links'].append(link)
-
-    titles = results['titles']
-
-    names = None
-    firstMan = None
-    for title in titles:
-        if title != "":
-            firstMan = title
-            break
-
-    if firstMan != None:
-        names = firstMan.split()
-
-    if names == None:
-        return "Failed"
-
-    print("-------------description---------------\n")
-    for desc in soup.findAll('span', attrs={'class': 'st'}):
-        results['descriptions'].append(desc.get_text())
-
-    print("------------similar_images-------------\n")
-    rg_r = soup.find('div', attrs={'rg_r'})
-
-    try:
-        if rg_r != None:
-            for similar_image in rg_r.findAll('img', attrs={'_WCg'}):
-                img_url = similar_image.get('title')
-                results['similar_images'].append(img_url)
-    except:
-        insertDataToMysql(results, filePath)
-
-    result = insertDataToMysql(results, filePath)
-    self.emit(SIGNAL('search_result(PyQt_PyObject)'), result)
 
 def getCurrentTime(DateOnly=False):
     now = datetime.datetime.now()
@@ -319,33 +234,106 @@ def saveHttpContent(links, name):
 
     print("finish")
 
-# from selenium import webdriver
-# from selenium.webdriver.common.keys import Keys
-#
-# def saveCompleteHtml(url):
-#
-#     browser = webdriver.Firefox()
-#
-#     browser.get('http://www.yahoo.com')
-#     assert 'Yahoo' in browser.title
-#
-#     elem = browser.find_element_by_name('p')  # Find the search box
-#     elem.send_keys('seleniumhq' + Keys.RETURN)
-#
-#     browser.quit()
+def uploadImage(filePath):
+    hh = BoxImageUrl()
+    currentTime = getCurrentTime();
+    uploadUrl = 'https://app.box.com/s/' + str(currentTime)
+    hh.set_box_public_link_of_image(str(uploadUrl))
+    hh.set_image_version_history()
+    hh.upload_new_image(str(filePath))
 
-class GoogleSearchThread(QThread):
-    def __init__(self, path):
-        QThread.__init__(self)
-        self.path = path
+    return hh.box_image_full_url
 
-    def __del__(self):
-        self.wait()
+def searchInfoByURL(filePath, baseSite):
+    url = uploadImage(filePath)
+    if baseSite == 'Google':
+        searchPath = 'http://www.google.com/searchbyimage?image_url=' + url
+    elif baseSite == 'Bing':
+        searchPath = 'https://www.bing.com/images/search?q=imgurl:' + url + '&view=detailv2&iss=sbi'
+    elif baseSite == 'Yahoo':
+        searchPath = 'http://iqdb.org?url=' + url
+    elif baseSite == 'Baidu':
+        searchPath = 'http://images.baidu.com/search/flip?tn=baiduimage&ie=utf-8&image_url=' + url
+    elif baseSite == 'DuckDuckGo':
+        searchPath = 'https://tineye.com/search?url=' + url
+    else:
+        searchPath = 'https://yandex.com/images/search?url=' + url + '&rpt=imageview'
 
-    def run(self):
-        result = searchInfoFromGoogle(self.path, False)
-        if result == "Failed":
-            return
-        else:
-            self.emit(SIGNAL('google_search(PyQt_PyObject)'), result)
+    sourceCode = opener.open(searchPath).read()
+    return sourceCode
+
+def searchInfoByGoogle(filePath):
+    searchUrl = 'http://www.google.com/searchbyimage/upload'
+    multipart = {'encoded_image': (filePath, open(filePath, 'rb')), 'image_content': ''}
+    response = requests.post(searchUrl, files=multipart, allow_redirects=False)
+
+    try:
+        fetchUrl = response.headers['Location']
+        sourceCode = opener.open(fetchUrl).read()
+        #sourceCode = webbrowser.open(fetchUrl)
+    except:
+        return None
+
+    return sourceCode
+
+def searchInfo(self, filePath, baseSite, url):
+    if url:
+        source = searchInfoByURL(filePath, baseSite)
+    else:
+        source = searchInfoByGoogle(filePath)
+
+    if source == None:
+        return
+
+    soup = BeautifulSoup(source, 'html.parser')
+    results = {
+        'links': [],
+        'descriptions': [],
+        'titles': [],
+        'similar_images': []
+    }
+
+    print("-----------------title-----------------\n")
+    for title in soup.findAll('h3', attrs={'class': 'r'}):
+        results['titles'].append(title.get_text())
+
+    print("\n\n-------------links---------------\n")
+    for div in soup.findAll('div', attrs={'class': 'g'}):
+        sLink = div.find('a')
+        link = sLink['href']
+        if link != "":
+            results['links'].append(link)
+
+    titles = results['titles']
+
+    names = None
+    firstMan = None
+    for title in titles:
+        if title != "":
+            firstMan = title
+            break
+
+    if firstMan != None:
+        names = firstMan.split()
+
+    if names == None:
+        return
+
+    print("-------------description---------------\n")
+    for desc in soup.findAll('span', attrs={'class': 'st'}):
+        results['descriptions'].append(desc.get_text())
+
+    print("------------similar_images-------------\n")
+    rg_r = soup.find('div', attrs={'rg_r'})
+
+    try:
+        if rg_r != None:
+            for similar_image in rg_r.findAll('img', attrs={'_WCg'}):
+                img_url = similar_image.get('title')
+                results['similar_images'].append(img_url)
+    except:
+        insertDataToMysql(results, filePath)
+
+    result = insertDataToMysql(results, filePath)
+    self.emit(SIGNAL('search_result(PyQt_PyObject)'), result)
 
